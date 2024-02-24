@@ -73,21 +73,19 @@ Objs            += $(patsubst %.c, $(BUILD_DIR)/%.o, $(c_Srcs))
 
 ifeq ($($(TARGET)_type),exe)
 TARGET          := $(if $(BIN_NAME),$(BIN_NAME),$(TARGET))
-TARGET_DIR      := $(OUT_DIR)/$(TARGET)
+TARGET_PATH     := $(OUT_DIR)/$(TARGET)
 TARGET_TYPE     := bin
 else ifeq ($($(TARGET)_type),lib)
 TARGET          := $(if $(LIB_NAME),lib$(LIB_NAME),$(TARGET))
-TARGET_DIR      := $(OUT_DIR)/$(TARGET).a \
+TARGET_PATH     := $(OUT_DIR)/$(TARGET).a \
                    $(OUT_DIR)/$(TARGET).so
 TARGET_SUFFIX   := .so
 TARGET_TYPE     := lib ar
 else ifeq ($($(TARGET)_type),slib)
 TARGET          := $(if $(AR_NAME),lib$(AR_NAME),$(TARGET))
-TARGET_DIR      := $(OUT_DIR)/$(TARGET).a
+TARGET_PATH     := $(OUT_DIR)/$(TARGET).a
 TARGET_TYPE     := ar
-else ifeq ($($(TARGET)_type),go)
-TARGET_DIR     := $(OUT_DIR)/$(TARGET)
-TARGET_TYPE     := go
+TARGET_SUFFIX   := .a
 else
 $(error  target $($(TARGET)_type) not supported yet! )
 endif
@@ -101,25 +99,25 @@ LD_CMD = $(LD) -o $(BUILD_DIR)/$(TARGET)$(TARGET_SUFFIX) \
         $(LDflags) $(Objs) $(LDObjects) $(LDLIBS) $(LDflags_options)
 
 
-$(TARGET) :: $(if $(COMP_HEADER_PATH),$(CompHeader)) $(TARGET_DIR);
-ifneq ($(filter %.a,$(TARGET_DIR)),)
-$(filter %.a,$(TARGET_DIR)) : $(Objs) | $(OUT_DIR)
+$(TARGET) :: $(if $(COMP_HEADER_PATH),$(CompHeader)) $(TARGET_PATH);
+ifneq ($(filter %.a,$(TARGET_PATH)),)
+$(BUILD_DIR)/%.a : $(Objs) | $(BUILD_DIR)
 	@$(ECHO) ...
-	@$(ECHO) ... Build the Static Library $@
+	@$(ECHO) ... Build the Static Library $(@F)
 	@$(ECHO) ...
-	$(AR) $(ARflags_local) $(ARflags) $(BUILD_DIR)/$(@F) $(Objs) $(ObjsCache)
-	$(LN) $(BUILD_DIR)/$(@F) $@
+	$(AR) $(ARflags_local) $(ARflags) $@ $(Objs) $(ObjsCache)
 endif
 
-$(BUILD_DIR)/$(TARGET)$(TARGET_SUFFIX) : $(Objs) $(if $(filter bin,$(TARGET_TYPE)),$(LDLIBS)) | $(BUILD_DIR)
+$(if $(filter bin,$(TARGET_TYPE)),$(BUILD_DIR)/$(TARGET),$(BUILD_DIR)/$(TARGET).so) : $(Objs) \
+                $(if $(filter bin,$(TARGET_TYPE)),$(LDLIBS)) | $(BUILD_DIR)
 	@$(ECHO) ...
 	@$(ECHO) ... Build the Shared Library $(@F)
 	@$(ECHO) ...
 	@Cmd="$(LD_CMD)";\
 	$(ECHO) "\\t$$Cmd"; eval $$Cmd
 
-$(filter-out %.a,$(TARGET_DIR)) : $(BUILD_DIR)/$(TARGET)$(TARGET_SUFFIX) | $(OUT_DIR)
-	$(LN) $(BUILD_DIR)/$(TARGET)$(TARGET_SUFFIX) $@
+$(TARGET_PATH) : $(OUT_DIR)/% : $(BUILD_DIR)/% | $(OUT_DIR)
+	$(LN) $(BUILD_DIR)/$(@F) $@
 
 $(BUILD_DIR)/%.d: %$(CC_SUFFIX)|$(BUILD_DIR)
 	@$(ECHO) ...
@@ -131,8 +129,9 @@ $(BUILD_DIR)/%.o: %$(CC_SUFFIX) $(MAKEFILE) $(CURRENT_FILE)|$(BUILD_DIR)
 	@$(ECHO) ...
 	@$(ECHO) ... Build $(@F) "(from" $<")"
 	@$(ECHO) ...
-	@$(RM) -f $@ $(TARGET_DIR)
-	$(CC) -o $@ -c $< $(INC_SOURCE_PATH) $(CCflags_local) $(CCflags) $(CCflags_debug) $(CCflags_release) $(CCflags_local2) $(CCflags_options)
+	@$(RM) -f $@ $(TARGET_PATH)
+	$(CC) -o $@ -c $< $(INC_SOURCE_PATH) $(CCflags_local) $(CCflags) \
+		$(CCflags_debug) $(CCflags_release) $(CCflags_local2) $(CCflags_options)
 
 $(BUILD_DIR)/%.d: %.c|$(BUILD_DIR)
 	@$(ECHO) ...
@@ -144,7 +143,7 @@ $(BUILD_DIR)/%.o: %.c $(MAKEFILE) $(CURRENT_FILE)|$(BUILD_DIR)
 	@$(ECHO) ...
 	@$(ECHO) ... Build $(@F) "(from" $<")"
 	@$(ECHO) ...
-	@$(RM) -f $@ $(TARGET_DIR)
+	@$(RM) -f $@ $(TARGET_PATH)
 	$(C) -o $@ -c $< $(INC_SOURCE_PATH) $(Cflags_local) $(Cflags) $(Cflags_local2) $(Cflags_options)
 
 
@@ -162,7 +161,7 @@ endif
 endif
 
 clean:
-	@$(RM) $(TARGET_DIR) $(BUILD_DIR)/$(TARGET).so
+	@$(RM) $(TARGET_PATH) $(BUILD_DIR)/$(TARGET).so
 	@$(RM) $(BUILD_DIR)/*.d $(BUILD_DIR)/*.o
 	@$(ECHO) ... clean $(BUILD_MODE) $(TARGET) ...
 
@@ -186,7 +185,7 @@ clean_comp :
 #	$(RM) $(CompHeader)
 
 clean: clean_comp
-$(filter-out %.a,$(TARGET_DIR)) : $(CompHeader)
+$(filter-out %.a,$(TARGET_PATH)) : $(CompHeader)
 endif
 
 else

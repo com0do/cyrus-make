@@ -14,4 +14,4 @@ LDFLAGS  += -L$(OUT_DIR)
 
 
 # always place in end of file
-include $(PROJ_TOP)/make/target.mk
+include $(PROJ_TOP)/make/target.c.mk

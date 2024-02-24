@@ -20,4 +20,4 @@ LDFLAGS  += -L$(PROJ_TOP)/tools/rhlinux/usr/lib64
 
 
 # always place in end of file
-include $(PROJ_TOP)/make/target.mk
+include $(PROJ_TOP)/make/target.c.mk
